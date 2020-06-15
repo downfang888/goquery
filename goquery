@@ -1,0 +1,149 @@
+package main
+
+import (
+	"fmt"
+	"github.com/PuerkitoBio/goquery"
+	"io"
+	"net/http"
+	"os"
+	"time"
+)
+
+type Movie struct {
+	Num 	string
+	Url  	string
+	Star 	string
+	Name 	string
+
+}
+
+const (
+	baseurl string = "https://movie.douban.com/top250?start=25&filter="
+	imgpath string = "D:\\360DrvMgr\\mp36"
+)
+
+func main(){
+	t1 := time.Now()
+	for i := 105; i <1000; i++ {
+		//获取分页的url集合
+		url := fmt.Sprintf("https://wp.zp68.com/hotfile/zx-1-%v.html", i)
+		//url := fmt.Sprintf("https://movie.douban.com/top250?start=%v&filter=", i*25)
+		ress := getResponse2(url)
+		DownloadImg2(ress)
+
+		fmt.Printf("正在爬取第%v页\n",i+1)
+
+	}
+	elapsed := time.Since(t1)
+	fmt.Println("总共用时: ", elapsed)
+}
+
+func DownloadImg2(pages []Movie){
+	for _,v:= range pages{
+		if v.Url != "" {
+			res := getResponse(v.Url)
+			DownloadImg(res)
+		}
+
+	}
+
+}
+
+// 获取分页
+func getResponse2(url string)  []Movie{
+	client := &http.Client{}
+	reqest, err := http.NewRequest("GET", url, nil)
+	reqest.Header.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.100 Safari/537.36")
+	if err != nil {
+		panic(err)
+	}
+
+	response, _ := client.Do(reqest)
+	fmt.Println("++++===",response.StatusCode)
+
+	//res, err := http.Get(url)
+	//fmt.Println("______",res.StatusCode)
+
+	content,err:= goquery.NewDocumentFromReader(response.Body)
+	if err != nil{
+		panic(err)
+	}
+	//fmt.Println(content.Html())
+	return ParseResponse2(content)
+	//return content
+}
+func ParseResponse2(doc *goquery.Document) (pages []Movie) {
+	doc.Find("td.bw").Each(
+		func(i int, s *goquery.Selection) {
+			img,_:=s.Find("a").Attr("href")
+			if img !=""{
+				img="https://wp.zp68.com" + img
+				//name:=s.Find("h3").Text()
+
+				//	fmt.Println(name)
+				//fmt.Println(star)
+				pages = append(pages, Movie{
+					Url:  img,
+					//Name: name,
+				})
+			}
+		})
+	return pages
+}
+// 获取分页
+func getResponse(url string)  []Movie{
+	client := &http.Client{}
+	reqest, err := http.NewRequest("GET", url, nil)
+	reqest.Header.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.100 Safari/537.36")
+	if err != nil {
+		panic(err)
+	}
+
+	response, _ := client.Do(reqest)
+	fmt.Println("++++===",response.StatusCode)
+
+	//res, err := http.Get(url)
+	//fmt.Println("______",res.StatusCode)
+
+	content,err:= goquery.NewDocumentFromReader(response.Body)
+	if err != nil{
+		panic(err)
+	}
+	//fmt.Println(content.Html())
+	return ParseResponse(content)
+	//return content
+}
+
+func ParseResponse(doc *goquery.Document) (pages []Movie) {
+	doc.Find("html").Each(
+		func(i int, s *goquery.Selection) {
+			img,_ :=s.Find("source").Attr("src")
+			if img !=""{
+				name:=s.Find("h3").Text()
+				fmt.Println(img)
+				fmt.Println(name)
+				//fmt.Println(star)
+				pages = append(pages, Movie{
+					Url:  img,
+					Name: name,
+				})
+			}
+		})
+	return pages
+}
+
+func DownloadImg(pages []Movie){
+	for _,v:= range pages{
+		GetImg(v.Url,v.Name)
+	}
+
+}
+
+func GetImg(url string , name string) {
+	res, _ := http.Get(url)
+	//fmt.Println("save dir:", imgpath)
+	file_name := imgpath + "\\" + name
+	//fmt.Println("file:", file_name)
+	file, _ := os.Create(file_name)
+	io.Copy(file, res.Body)
+}
